@@ -1,14 +1,14 @@
 ######
 # Adaboost Classifier
-# Student Name:
-# Student Unity ID:
+# Student Name: Hari Krishna Majety
+# Student Unity ID: hmajety
 ######
 
 # Do not clear your workspace
 
 require(rpart) # for decision stump
 require(caret)
-
+require(mlbench)
 # set seed to ensure reproducibility
 set.seed(100)
 
@@ -19,7 +19,8 @@ set.seed(100)
 # output: alpha value (single value) (from Line 12 in algorithm 5.7 from Textbook)
 ###
 calculate_alpha <- function(epsilon){
-  
+  alpha <- 0.5*(log((1-epsilon)/epsilon))
+  return(alpha)
 }
 
 # calculate the epsilon value  
@@ -32,7 +33,8 @@ calculate_alpha <- function(epsilon){
 # just the epsilon or error value (line 7 in algorithm 5.7 from Textbook)
 ###
 calculate_epsilon <- function(weights, y_true, y_pred, n_elements){
-
+  epsilon <- sum(weights*ifelse(y_true != y_pred,1,0))/n_elements
+  return(epsilon)
 }
 
 
@@ -47,7 +49,10 @@ calculate_epsilon <- function(weights, y_true, y_pred, n_elements){
 # a vector of size n_elements containing updated weights
 ###
 calculate_weights <- function(old_weights, alpha, y_true, y_pred, n_elements){
-  
+    correspondingAplhas<-ifelse(y_true == y_pred,-alpha,alpha)
+    new_weights <- old_weights*exp(correspondingAplhas)
+    new_weights<-new_weights/sum(new_weights)
+    return(new_weights)
 }
 
 # implement myadaboost - simple adaboost classification
@@ -61,7 +66,26 @@ calculate_weights <- function(old_weights, alpha, y_true, y_pred, n_elements){
 # a vector of predicted values for 'train' after all the iterations of adaboost are completed
 ###
 myadaboost <- function(train, k, n_elements){
-
+  weights<-rep(1/n_elements,n_elements)
+  finalPredictions<- rep(0,n_elements)
+  for (iter in 1:k) {
+    dataSample<-train[sort(sample(n_elements,size = n_elements,replace = TRUE,prob = weights)),]
+    fit<-rpart(Label ~ .,data=dataSample,parms = list(split = "information"),control=rpart.control(maxdepth = 1))
+    predictionProbabilities<-predict(fit,train[,names(train)!="Label"])
+    predictions<- ifelse(predictionProbabilities>=0.5,1,-1)
+    #prediction<-predictionProbabilities
+    epsilon<-calculate_epsilon(weights,train$Label, predictions, n_elements)
+    if(epsilon>0.5){
+      weights<-rep(1/n_elements,n_elements)
+      iter<-iter-1
+      next
+    }
+    alpha<-calculate_alpha(epsilon)
+    weights<-calculate_weights(weights,alpha, train$Label, predictions, n_elements)
+    finalPredictions<-finalPredictions + (alpha*predictions)
+  }
+  finalPredictions<-ifelse(finalPredictions>0,1,-1)
+  return(finalPredictions)
 }
 
 
